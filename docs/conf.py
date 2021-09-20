@@ -1,6 +1,3 @@
-
-
-
 project = "Flashcards Python SDK"
 copyright = "2020, Flashcards Inc."
 author = "Tim Camise"

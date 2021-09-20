@@ -1,6 +1,3 @@
-
-
-
 """Exceptions that pertain to Flashcards-level functionality."""
 
 
@@ -9,7 +6,6 @@ class FlashCardsError(Exception):
 
     def __init__(self, message: str) -> None:
         super().__init__(f"Flashcards Error: {message}")
-
 
 
 class InvalidConfiguration(FlashcardsError):
