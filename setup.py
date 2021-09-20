@@ -22,6 +22,7 @@ TEST_REQUIRED = ["pytest", "pytest-cov", "pytest-asyncio", "pytest-html"]
 
 REQUIRED = [
     "rich",
+    "gTTS"
 ]
 
 here = os.path.abspath(os.path.dirname(__file__))
