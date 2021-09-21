@@ -4,6 +4,7 @@ from dataclasses import InitVar, dataclass, field
 from typing import List
 import logging
 
+from rich.console import Console
 from gtts import gTTS
 
 from pyflashcards.util import cmd
@@ -81,8 +82,14 @@ class Flashcard:
     def answer(self) -> str:
         return self._answer.value
 
-    def play_question(self):
+    def read_question(self):
         self._player.play(self._question.value, self._question.language)
 
-    def play_answer(self):
+    def read_answer(self):
         self._player.play(self._answer.value, self._answer.language)
+
+    def show_question(self, console: Console):
+        console.print(self._question.value)
+
+    def show_answer(self, console: Console):
+        console.print(self._answer.value)
