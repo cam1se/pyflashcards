@@ -1,18 +1,26 @@
-import enum
+from enum import Enum
 import platform
+from pathlib import Path
 from dataclasses import InitVar, dataclass, field
-from typing import List
+from typing import List, Optional, Any
 import logging
 
 from rich.console import Console
 from gtts import gTTS
+import vlc
 
 from pyflashcards.util import cmd
 
 logger = logging.getLogger(__name__)
 
+
+class OperatingSystems(Enum):
+    MACOS = "darwin"
+    WINDOWS = "windows"
+
+
 # TODO get this from gTTS
-class SupportedLanguages(enum.Enum):
+class SupportedLanguages(Enum):
     ENGLISH = "english"
     GREEK = "greek"
 
@@ -22,25 +30,34 @@ language_mapping = {
     SupportedLanguages.GREEK: "el",
 }
 
-
 # TODO make singleton
 class AudioPlayer:
     def __init__(self) -> None:
-        os = None
-        if (p := platform.system().lower()) == "darwin":
-            self.player = "afplay"
-            os = "MacOS"
-        else:
-            raise NotImplementedError
+        try:
+            self.os = OperatingSystems(platform.system().lower())
+        except KeyError as e:
+            raise NotImplementedError from e
 
-        assert os is not None
-        logger.debug(f"Using {self.player} to play audio on {os}")
+    @staticmethod
+    def _ahplay_play(audio_file: Path) -> None:
+        cmd(f"ahplay {str(audio_file)}")
+        # TODO check response
+
+    @staticmethod
+    def _vlc_play(audio_file: Path) -> None:
+        vlc.MediaPlayer(audio_file).play()  # type: ignore
 
     def play(self, word: str, language: str) -> None:
+        audio_file = Path("temp.mp3")
         tts = gTTS(word, lang=language)
         # TODO put this in temp folder
-        tts.save("temp.mp3")
-        response = cmd(f"{self.player} temp.mp3")
+        tts.save(audio_file)
+        if self.os is OperatingSystems.MACOS:
+            self._ahplay_play(audio_file)
+        elif self.os is OperatingSystems.WINDOWS:
+            self._vlc_play(audio_file)
+        else:
+            raise NotImplementedError
 
 
 @dataclass

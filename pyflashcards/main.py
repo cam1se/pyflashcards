@@ -18,7 +18,6 @@ def main():
 
     source_file = Path(console.input("Hello! What file should I use to build the flashcards?\n > "))
 
-    # TODO turn this into a generator class
     with open(source_file) as fp:
         csv_reader = csv.reader(fp)
         # Get languages
