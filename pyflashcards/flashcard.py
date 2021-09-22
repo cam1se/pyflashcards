@@ -10,7 +10,7 @@ from gtts import gTTS
 import vlc
 
 from pyflashcards.exceptions import MediaPlayerError
-from pyflashcards.util import cmd
+from pyflashcards.util import cmd, Singleton
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,8 @@ language_mapping = {
     SupportedLanguages.GREEK: "el",
 }
 
-# TODO make singleton
+
+@Singleton
 class AudioPlayer:
     def __init__(self) -> None:
         try:
@@ -39,16 +40,25 @@ class AudioPlayer:
         except KeyError as e:
             raise NotImplementedError from e
 
-    @staticmethod
-    def _ahplay_play(audio_file: Path) -> None:
+        if self.os is OperatingSystems.WINDOWS:
+            self.vlc = vlc.Instance()
+            self.player = self.vlc.media_player_new()
+
+    def _ahplay_play(self, audio_file: Path) -> None:
         cmd(f"ahplay {str(audio_file)}")
         # TODO check response
 
-    @staticmethod
-    def _vlc_play(audio_file: Path) -> None:
+    def _vlc_play(self, audio_file: Path) -> None:
         try:
-            vlc.MediaPlayer(audio_file).play()  # type: ignore
-        except Exception as e: # TODO what is the exception?
+            # player = vlc.MediaPlayer(audio_file)
+            # vlc.MediaPlayer(audio_file).play()  # type: ignore
+
+            media = self.vlc.media_new(audio_file)
+            # Media.get_mrl()
+            self.player.set_media(media)
+            self.player.play()
+
+        except Exception as e:  # TODO what is the exception?
             logger.error("Couldn't find VLC. Exiting...")
             raise MediaPlayerError("Couldn't find VLC.") from e
 
@@ -92,7 +102,7 @@ class Flashcard:
         question_language: SupportedLanguages,
         answer_language: SupportedLanguages,
     ):
-        self._player = AudioPlayer()
+        self._player = AudioPlayer.instance()
         self._question = Flashcard.Item(question_text, question_language)
         self._answer = Flashcard.Item(answer_text, answer_language)
 
@@ -110,8 +120,8 @@ class Flashcard:
     def read_answer(self):
         self._player.play(self._answer.value, self._answer.language)
 
-    def show_question(self, console: Console):
-        console.print(self._question.value)
+    def get_question(self) -> str:
+        return self._question.value
 
-    def show_answer(self, console: Console):
-        console.print(self._answer.value)
+    def get_answer(self) -> str:
+        return self._answer.value

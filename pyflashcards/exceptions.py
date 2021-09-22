@@ -14,5 +14,6 @@ class InvalidConfiguration(FlashCardsError):
     def __init__(self, message: str) -> None:
         super().__init__(f"Invalid configuration: {message}")
 
+
 class MediaPlayerError(FlashCardsError):
     """Something bad happened in / with the media player"""
