@@ -2,3 +2,4 @@
 rich==9.13.0
 gTTS==2.2.3
 python-vlc==3.0.12118
+PySimpleGUI==4.47.0
