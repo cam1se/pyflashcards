@@ -9,6 +9,7 @@ from rich.console import Console
 from gtts import gTTS
 import vlc
 
+from pyflashcards.exceptions import MediaPlayerError
 from pyflashcards.util import cmd
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,11 @@ class AudioPlayer:
 
     @staticmethod
     def _vlc_play(audio_file: Path) -> None:
-        vlc.MediaPlayer(audio_file).play()  # type: ignore
+        try:
+            vlc.MediaPlayer(audio_file).play()  # type: ignore
+        except Exception as e: # TODO what is the exception?
+            logger.error("Couldn't find VLC. Exiting...")
+            raise MediaPlayerError("Couldn't find VLC.") from e
 
     def play(self, word: str, language: str) -> None:
         audio_file = Path("temp.mp3")

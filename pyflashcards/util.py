@@ -43,7 +43,7 @@ def setup_logging(output: Path) -> Any:
     logger.addHandler(sh)
     logger.setLevel(logging.DEBUG)
 
-    modules = ["pyflashcards.util", "pyflashcards.flashcards"]
+    modules = ["pyflashcards.util", "pyflashcards.flashcards", "pyflashcards.flashcard_reader"]
 
     # Enable / disable logging in modules
     for module in modules:
