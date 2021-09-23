@@ -2,7 +2,8 @@ import csv
 from enum import Flag, auto
 from pathlib import Path
 import logging
-from typing import Iterator, Any, List
+from typing import Iterator, Any, List, TypeVar, Generic
+from random import randint
 
 import PySimpleGUI as sg
 
@@ -67,18 +68,32 @@ class DisplayAction(Flag):
     SHOW = auto()
 
 
+T = TypeVar("T")
+
+
+class ShuffledIterator(Generic[T], Iterator):
+    def __init__(self, items: List[T]):
+        self._items = items
+
+    def __next__(self) -> T:
+        if len(self._items) == 0:
+            raise StopIteration
+        else:
+            return self._items.pop(randint(0, len(self._items) - 1))
+
+
 class FlashcardsGui:
     def __init__(self) -> None:
         sg.theme("Dark Blue 3")
         self.window = sg.Window("Window Title", layout)
-        self.flashcards: Iterator[Flashcard]
+        self.flashcards: ShuffledIterator[Flashcard]
         self.current_flashcard: Flashcard
         self.display_action = DisplayAction.READ | DisplayAction.SHOW
         self.incorrect: List[Flashcard] = []
         self.correct: List[Flashcard] = []
 
     def set_flashcards(self, flashcards: List[Flashcard]):
-        self.flashcards = iter(flashcards)
+        self.flashcards = ShuffledIterator(flashcards)
         self.incorrect = []
         self.correct = []
         self.window.find_element("-RETRY_ALL-").Update(visible=False)
