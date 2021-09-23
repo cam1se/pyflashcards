@@ -6,7 +6,7 @@ from typing import Iterator, Any, List
 
 import PySimpleGUI as sg
 
-from pyflashcards.flashcard import Flashcard, SupportedLanguages, AudioPlayer
+from pyflashcards.flashcard import Flashcard, SupportedLanguages
 from pyflashcards.util import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ FlashcardCol = sg.Col(
 layout = [
     # File browser
     [sg.Text("Where should I read the flashcards from?")],
-    [sg.Input(key="-FILEBROWSE-", enable_events=True), sg.FileBrowse(target="-FILEBROWSE-")],
+    [sg.Input(key="-FILEBROWSE-", enable_events=True, expand_x=True), sg.FileBrowse(target="-FILEBROWSE-")],
     # Flashcard
     [
         sg.Frame(
@@ -47,11 +47,18 @@ layout = [
     ],
     # Controls
     [
-        sg.Checkbox("Read aloud", default=True, enable_events=True, key="-READ-"),
-        sg.Checkbox("Print question", default=True, enable_events=True, key="-PRINT-"),
+        sg.Checkbox("Read Question Aloud", default=True, enable_events=True, key="-READ-"),
+        sg.Checkbox("Print Question to Screen", default=True, enable_events=True, key="-PRINT-"),
     ],
-    [sg.Button("Repeat"), sg.Button("Correct"), sg.Button("Wrong")],
-    [sg.Button("Exit")],
+    # Only shown at the end of the test
+    [
+        sg.Text("1. Select 'Show Answer' when ready to proceed"),
+        sg.Button("Repeat Question"),
+        sg.Button("Show Answer"),
+    ],
+    [sg.Text("2. Choose one after seeing the answer:"), sg.Button("Correct"), sg.Button("Wrong")],
+    [sg.Button("Retry All", visible=False, key="-RETRY_ALL-")],
+    [sg.Button("Retry Only Incorrect", visible=False, key="-RETRY_INCORRECT-")],
 ]
 
 
@@ -68,9 +75,17 @@ class FlashcardsGui:
         self.current_flashcard: Flashcard
         self.display_action = DisplayAction.READ | DisplayAction.SHOW
         self.incorrect: List[Flashcard] = []
+        self.correct: List[Flashcard] = []
+
+    def set_flashcards(self, flashcards: List[Flashcard]):
+        self.flashcards = iter(flashcards)
+        self.incorrect = []
+        self.correct = []
+        self.window.find_element("-RETRY_ALL-").Update(visible=False)
+        self.window.find_element("-RETRY_INCORRECT-").Update(visible=False)
+        self.get_next_flashcard()
 
     def get_next_flashcard(self):
-        # TODO handle end of iterator
         self.current_flashcard = next(self.flashcards)
         self.window["-FLASHCARD-"].update("")
         self.display_current_flashcard()
@@ -95,8 +110,8 @@ class FlashcardsGui:
                     flashcards_file = Path(values["Browse"])
                     logger.info(f"Received new input file: {flashcards_file}")
                     # Build flashcards iterator
-                    flashcards_list: List[Flashcard] = []
-                    with open(flashcards_file) as fp:
+                    flashcards: List[Flashcard] = []
+                    with open(flashcards_file, encoding="utf-8-sig") as fp:
                         csv_reader = csv.reader(fp)
                         question_language, answer_language = next(csv_reader)
                         question_language = SupportedLanguages(question_language)
@@ -105,10 +120,8 @@ class FlashcardsGui:
                             question, answer = row
                             # keywords = list(keywords.split(",")) TODO
                             flashcard = Flashcard(question, answer, question_language, answer_language)
-                            flashcards_list.append(flashcard)
-                    self.flashcards = iter(flashcards_list)
-                    self.get_next_flashcard()
-                    self.incorrect = []
+                            flashcards.append(flashcard)
+                    self.set_flashcards(flashcards)
 
                 # Update the display flag enum
                 if event == "-READ-":
@@ -118,7 +131,7 @@ class FlashcardsGui:
                     else:
                         logger.info("Disabling flashcards reading")
                         self.display_action &= ~DisplayAction.READ
-                if event == "-PRINT-":
+                elif event == "-PRINT-":
                     if values["-PRINT-"]:
                         logger.info("Enabling flashcards showing")
                         self.display_action |= DisplayAction.SHOW
@@ -127,14 +140,43 @@ class FlashcardsGui:
                         self.display_action &= ~DisplayAction.SHOW
 
                 # Re-display the flashcard
-                if event == "Repeat":
+                if event == "Repeat Question":
                     self.display_current_flashcard()
 
+                # Go to answer
+                if event == "Show Answer":
+                    self.window["-FLASHCARD-"].update(self.current_flashcard.get_answer())
+                    self.current_flashcard.read_answer()
+
                 # Handle the result of the flashcard test
-                if event == "Correct":
-                    self.get_next_flashcard()
-                if event == "Wrong":
-                    self.get_next_flashcard()
+                try:
+                    if event == "Correct":
+                        logger.info("Marking answer as correct")
+                        self.correct.append(self.current_flashcard)
+                        self.get_next_flashcard()
+                    elif event == "Wrong":
+                        logger.info("Marking answer as wrong")
+                        self.incorrect.append(self.current_flashcard)
+                        self.get_next_flashcard()
+                except StopIteration:
+                    if len(self.correct) > 0:
+                        self.window.find_element("-RETRY_ALL-").Update(visible=True)
+                    if len(self.incorrect) > 0:
+                        self.window.find_element("-RETRY_INCORRECT-").Update(visible=True)
+                    total_questions = len(self.correct) + len(self.incorrect)
+                    score = int((len(self.correct) / total_questions) * 100)
+                    self.window["-FLASHCARD-"].update(
+                        f"That's it. You scored {score}%\n\n"
+                        "Choose a Retry button below or select\n a new file to continue"
+                    )
+
+                # Handle retries
+                if event == "-RETRY_ALL-":
+                    logger.info("Retrying all flashcards")
+                    self.set_flashcards([*self.correct, *self.incorrect])
+                elif event == "-RETRY_INCORRECT-":
+                    logger.info("Retrying only incorrect flashcards")
+                    self.set_flashcards(self.incorrect)
 
                 # Exit the program
                 if event == sg.WIN_CLOSED or event == "Exit":
